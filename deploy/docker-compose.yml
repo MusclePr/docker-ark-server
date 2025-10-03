@@ -18,24 +18,39 @@ services:
     environment:
       # # This setup is necessary if you have to download a non-anonymous appID/modID
       #- STEAM_LOGIN=${STEAM_LOGIN}
+      # main instance settings
       - SESSION_NAME=${SESSION_NAME}
       - SERVER_MAP=${SERVER_MAP}
       - SERVER_PASSWORD=${SERVER_PASSWORD}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
       - MAX_PLAYERS=${MAX_PLAYERS}
+      # global settings
       - UPDATE_ON_START=${UPDATE_ON_START}
       - BACKUP_ON_STOP=${BACKUP_ON_STOP}
       - PRE_UPDATE_BACKUP=${PRE_UPDATE_BACKUP}
       - WARN_ON_STOP=${WARN_ON_STOP}
       - GAME_MOD_IDS=${GAME_MOD_IDS}
+      - GAME_CLIENT_PORT="7777"
+      - SERVER_LIST_PORT="27015"
+      - RCON_PORT="27020"
+      # for cluster setup
+      - CLUSTER_ID=MyCluster
+      # sub instances settings
+      - SUB_INSTANCE_KEYS=Fjordur
+      #- Fjordur_INSTANCE_NAME=Fjordur
+      #- Fjordur_SAVE_DIR=Fjordur
+      #- Fjordur_SERVER_MAP=Fjordur
+      #- Fjordur_SESSION_NAME=${SESSION_NAME}2
+      #- Fjordur_GAME_MOD_IDS=${GAME_MOD_IDS}
+      #- Fjordur_PORT=7779
+      #- Fjordur_QUERY_PORT=27016
+      #- Fjordur_RCON_PORT=27021
     ports:
       # Port for connections from ARK game client
-      - "7777:7777/udp"
-      # Raw UDP socket port (always Game client port +1
-      - "7778:7778/udp"
-      # RCON management port
-      - "27020:27020/tcp"
+      - "7777-7780:7777-7780/udp"
       # Steam's server-list port
-      - "27015:27015/udp"
+      - "27015-27016:27015-27016/udp"
+      # RCON management port
+      - "27020-27021:27020-27021/tcp"
     networks:
       - default

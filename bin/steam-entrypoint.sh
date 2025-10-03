@@ -18,7 +18,7 @@ function may_update() {
 
   # auto checks if a update is needed, if yes, then update the server or mods
   # (otherwise it just does nothing)
-  ${ARKMANAGER} update --verbose --update-mods --backup --no-autostart ${BETA_ARGS[@]}
+  ${ARKMANAGER} update @main --verbose --update-mods --backup --no-autostart ${BETA_ARGS[@]}
 }
 
 function create_missing_dir() {
@@ -65,6 +65,53 @@ function needs_install() {
   return 1
 }
 
+function add_cluster_cfg() {
+  if ! grep -q '^arkopt_ClusterDirOverride='; then
+    echo "Remaking cluster settings in arkmanager.cfg ..."
+    cat <<EOF >> "${ARK_TOOLS_DIR}/arkmanager.cfg"
+
+# Cluster settings
+arkflag_NoTransferFromFiltering=true
+arkopt_ClusterDirOverride="/cluster"
+arkopt_clusterid=\${CLUSTER_ID:-MyCluster}
+EOF
+  fi
+}
+
+function make_sub_instances_cfg() {
+  local key f instance
+  local -i i=2
+  # remove old sub instance configs
+  for f in "${ARK_TOOLS_DIR}/instances/"*.cfg; do
+    [[ -f "${f}" ]] || continue
+    [[ "$(basename "${f}")" != "main.cfg" ]] || continue
+    rm -f "${f}"
+  done
+  # create new sub instance configs
+  for key in ${SUB_INSTANCE_KEYS//,/ }; do
+    instance="${key}_INSTANCE_NAME"
+    instance="${!instance:-${key}}"
+    cat "${TEMPLATE_DIRECTORY}/arkmanager-sub.cfg" | sed -r \
+      -e "s/<KEY>/${key}/g" \
+      -e "s/<INDEX>/$((i))/g" \
+      -e "s/<GAME_CLIENT_PORT>/$((GAME_CLIENT_PORT+i*2))/g" \
+      -e "s/<SERVER_LIST_PORT>/$((SERVER_LIST_PORT+i))/g" \
+      -e "s/<RCON_PORT>/$((RCON_PORT+i))/g" \
+    > "${ARK_TOOLS_DIR}/instances/${instance}.cfg"
+    ((i++))
+  done
+}
+
+function get_all_mod_ids() {
+  local -r all_game_mod_ids=(${GAME_MOD_IDS//,/ })
+  local key ids
+  for key in ${SUB_INSTANCE_KEYS//,/ }; do
+    ids="${key}_GAME_MOD_IDS"
+    all_game_mod_ids+=("${!ids//,/ }")
+  done
+  echo "$(echo "${all_game_mod_ids[@]}" | tr ' ' '\n' | sort -u | tr '\n' ' ')"
+}
+
 args=("$*")
 if [[ "${ENABLE_CROSSPLAY}" == "true" ]]; then
   args=('--arkopt,-crossplay' "${args[@]}")
@@ -101,6 +148,9 @@ copy_missing_file "${TEMPLATE_DIRECTORY}/arkmanager.cfg" "${ARK_TOOLS_DIR}/arkma
 copy_missing_file "${TEMPLATE_DIRECTORY}/arkmanager-user.cfg" "${ARK_TOOLS_DIR}/instances/main.cfg"
 copy_missing_file "${TEMPLATE_DIRECTORY}/crontab" "${ARK_SERVER_VOLUME}/crontab"
 
+add_cluster_cfg
+make_sub_instances_cfg
+
 [[ -L "${ARK_SERVER_VOLUME}/Game.ini" ]] ||
   ln -s ./server/ShooterGame/Saved/Config/LinuxServer/Game.ini Game.ini
 [[ -L "${ARK_SERVER_VOLUME}/GameUserSettings.ini" ]] ||
@@ -117,7 +167,7 @@ if needs_install; then
   touch "${ARK_SERVER_VOLUME}/server/ShooterGame/Binaries/Linux/ShooterGameServer"
   chmod +x "${ARK_SERVER_VOLUME}/server/ShooterGame/Binaries/Linux/ShooterGameServer"
 
-  if ! ${ARKMANAGER} install --verbose ${BETA_ARGS[@]}; then
+  if ! ${ARKMANAGER} install @main --verbose ${BETA_ARGS[@]}; then
     echo "Installation failed"
     exit 1
   fi
@@ -125,10 +175,11 @@ fi
 
 crontab "${ARK_SERVER_VOLUME}/crontab"
 
-if [[ -n "${GAME_MOD_IDS}" ]]; then
-  echo "Installing mods: '${GAME_MOD_IDS}' ..."
+declare -a ALL_GAME_MOD_IDS=($(get_all_mod_ids))
+if [[ ${#ALL_GAME_MOD_IDS[@]} -gt 0 ]]; then
+  echo "Installing mods: '${ALL_GAME_MOD_IDS[*]}' ..."
 
-  for MOD_ID in ${GAME_MOD_IDS//,/ }; do
+  for MOD_ID in ${ALL_GAME_MOD_IDS[@]}; do
     echo "...installing '${MOD_ID}'"
 
     if [[ -d "${ARK_SERVER_VOLUME}/server/ShooterGame/Content/Mods/${MOD_ID}" ]]; then
