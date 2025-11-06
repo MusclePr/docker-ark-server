@@ -104,6 +104,19 @@ EOF
   fi
 }
 
+function add_whitelist_to_arkmanager_cfg() {
+  local -r config="${ARK_TOOLS_DIR}/arkmanager.cfg"
+  if ! grep -q '^arkflag_exclusivejoin=' "${config}"; then
+    echo "Add Whitelist settings to arkmanager.cfg ..."
+    cat <<EOF >> "${config}"
+
+# Whitelist settings
+arkflag_exclusivejoin=${ENABLE_WHITELIST:-false}
+EOF
+  fi
+  (cd /app; ln -sf ./server/ShooterGame/Binaries/Linux/PlayersJoinNoCheckList.txt ./whitelist.txt)
+}
+
 function remake_sub_instances_cfg() {
   local key
   local -i i=1
@@ -150,6 +163,29 @@ function get_all_mod_ids() {
   printf '%s\n' "${collected[@]}" | sort -u
 }
 
+function update_AllowedCheaterSteamIDs() {
+  local admin_steam_ids="$1"
+  if [ -z "${admin_steam_ids}" ]; then return; fi
+
+  local -r ids_file="${ARK_SERVER_VOLUME}/server/ShooterGame/Saved/AllowedCheaterSteamIDs.txt"
+  create_missing_dir "$(dirname "${ids_file}")"
+
+  if [[ "${admin_steam_ids,,}" =~ ^(no.*|false) ]]; then
+    echo "Cleaning up AllowedCheaterSteamIDs..."
+    rm -f "${ids_file}"
+    return
+  fi
+
+  echo "Setting up AllowedCheaterSteamIDs..."
+  local -a collected=()
+  local steam_id
+  for steam_id in ${admin_steam_ids//,/ }; do
+    [[ -n "${steam_id}" ]] && collected+=("${steam_id}")
+  done
+
+  printf '%s\n' "${collected[@]}" | sort -u > "${ids_file}"
+}
+
 args=("$@")
 if [[ "${ENABLE_CROSSPLAY}" == "true" ]]; then
   args=('--arkopt,-crossplay' "${args[@]}")
@@ -186,8 +222,11 @@ copy_missing_file "${TEMPLATE_DIRECTORY}/arkmanager.cfg" "${ARK_TOOLS_DIR}/arkma
 copy_missing_file "${TEMPLATE_DIRECTORY}/arkmanager-user.cfg" "${ARK_TOOLS_DIR}/instances/main.cfg"
 copy_missing_file "${TEMPLATE_DIRECTORY}/crontab" "${ARK_SERVER_VOLUME}/crontab"
 
+# old arkmanager.cfg adjustments
 add_cluster_to_arkmanager_cfg
 add_logging_to_arkmanager_cfg
+add_whitelist_to_arkmanager_cfg
+
 remake_sub_instances_cfg
 
 [[ -L "${ARK_SERVER_VOLUME}/Game.ini" ]] ||
@@ -233,6 +272,7 @@ if [[ ${#ALL_GAME_MOD_IDS[@]} -gt 0 ]]; then
 fi
 
 may_update
+update_AllowedCheaterSteamIDs "${ADMIN_STEAM_IDS}"
 
 function terminate() {
   echo "Termination signal received."

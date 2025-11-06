@@ -59,6 +59,7 @@ RUN         set -x && \
             rm -rf /tmp/* /var/cache/*
 
 COPY        bin/    /
+COPY        scripts/ /usr/local/bin/
 COPY        conf.d  ${TEMPLATE_DIRECTORY}
 
 EXPOSE      ${GAME_CLIENT_PORT}/udp ${UDP_SOCKET_PORT}/udp ${SERVER_LIST_PORT}/udp ${RCON_PORT}/tcp
