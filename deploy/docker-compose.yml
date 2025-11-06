@@ -48,6 +48,11 @@ services:
       - STEAM_WEB_API_KEY=${STEAM_WEB_API_KEY}
       # Admin Whitelist settings
       - ADMIN_STEAM_IDS=${ADMIN_STEAM_IDS}
+      # Logging settings
+      - TZ=${TZ:-UTC}
+      - ENABLE_SERVER_GAME_LOG=true
+      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
+
     ports:
       # Port for connections from ARK game client
       - "7777:7777/udp"
