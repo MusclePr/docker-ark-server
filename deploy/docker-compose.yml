@@ -33,6 +33,10 @@ services:
       - STEAM_WEB_API_KEY=${STEAM_WEB_API_KEY}
       # Admin Whitelist settings
       - ADMIN_STEAM_IDS=${ADMIN_STEAM_IDS}
+      # Logging settings
+      - TZ=${TZ:-UTC}
+      - ENABLE_SERVER_GAME_LOG=true
+      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
 
       # === Main instance settings ===
       - SESSION_NAME=${SESSION_NAME}
@@ -58,6 +62,7 @@ services:
       #- SUB_Fjordur_GAME_CLIENT_PORT=7779
       #- SUB_Fjordur_SERVER_LIST_PORT=27016
       #- SUB_Fjordur_RCON_PORT=27021
+      #- SUB_Fjordur_DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
 
       # SUB_<KEY>_* default variables
       #- SUB_Caballus_P_SAVE_DIR=sub.Caballus_P
@@ -68,6 +73,7 @@ services:
       #- SUB_Caballus_P_GAME_CLIENT_PORT=7781
       #- SUB_Caballus_P_SERVER_LIST_PORT=27017
       #- SUB_Caballus_P_RCON_PORT=27022
+      #- SUB_Caballus_P_DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
     ports:
       # Port for connections from ARK game client
       - "7777-7800:7777-7800/udp"

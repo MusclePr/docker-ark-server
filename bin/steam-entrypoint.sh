@@ -84,6 +84,27 @@ EOF
   fi
 }
 
+function add_logging_to_arkmanager_cfg() {
+  local -r config="${ARK_TOOLS_DIR}/arkmanager.cfg"
+  if ! grep -q '^discordWebhookURL=' "${config}"; then
+    echo "Add Discord webhook settings to arkmanager.cfg ..."
+    cat <<EOF >> "${config}"
+
+# Discord webhook settings
+discordWebhookURL=\${DISCORD_WEBHOOK_URL}
+EOF
+  fi
+  if ! grep -q '^arkflag_servergamelog=' "${config}"; then
+    echo "Add Logging settings to arkmanager.cfg ..."
+    cat <<EOF >> "${config}"
+
+# Logging settings
+arkflag_servergamelog=\${ENABLE_SERVER_GAME_LOG:-false}
+notifyCommand+='; [ "${msg}" = "${notifyMsgServerUp}" ] && ServerGameLogWatcher.sh "${serverpid}"'
+EOF
+  fi
+}
+
 function add_whitelist_to_arkmanager_cfg() {
   local -r config="${ARK_TOOLS_DIR}/arkmanager.cfg"
   if ! grep -q '^arkflag_exclusivejoin=' "${config}"; then
@@ -220,6 +241,7 @@ copy_missing_file "${TEMPLATE_DIRECTORY}/crontab" "${ARK_SERVER_VOLUME}/crontab"
 
 add_cluster_to_arkmanager_cfg
 add_whitelist_to_arkmanager_cfg
+add_logging_to_arkmanager_cfg
 
 remake_sub_instances_cfg
 
