@@ -49,6 +49,9 @@ The basic configuration of your server is done by using environment variables wh
 | ENABLE_WHITELIST | false | Enable join whitelist (as enable exclusivejoin) |
 | WHITE_STEAM_IDS | `empty` | Steam IDs to pre-register on the join whitelist |
 | ADMIN_STEAM_IDS | `empty` | Steam IDs to pre-register on the admin whitelist |
+| TZ | UTC | You can configure the timezone |
+| ENABLE_SERVER_GAME_LOG | false | Enable watching ServerGame.{PID}.{UTC}.log |
+| DISCORD_WEBHOOK_URL | `empty` | Discord WebHook URL |
 
 #### Get things runnning
 
