@@ -604,6 +604,18 @@ function warn_on_overridden_backup_budget() {
   done
 }
 
+function add_whitelist_to_arkmanager_cfg() {
+  local -r config="${ARK_TOOLS_DIR}/arkmanager.cfg"
+  if ! grep -q '^arkflag_exclusivejoin=' "${config}"; then
+    echo "Add Whitelist settings to arkmanager.cfg ..."
+    cat <<EOF >> "${config}"
+
+# Whitelist settings
+arkflag_exclusivejoin="\${ENABLE_WHITELIST:-false}"
+EOF
+  fi
+}
+
 function remake_sub_instances_cfg() {
   local key target f
   local -i i=1
@@ -693,6 +705,74 @@ function heal_config_symlinks() {
           cp -a "${CONFIG_DIR}/${INI_FILE}" "${CONFIG_DIR}/${INI_FILE}.bak"
         fi
         mv -f "${INI_LINK}" "${CONFIG_DIR}/${INI_FILE}"
+      fi
+    fi
+    [[ -L "${INI_LINK}" ]] || ln -s "${CONFIG_DIR}/${INI_FILE}" "${INI_FILE}"
+  done
+}
+
+function update_join_whitelist() {
+  local -r steam_ids="$1"
+  if [ -z "${steam_ids}" ]; then return; fi
+
+  local -r whitelist_file="./server/ShooterGame/Binaries/Linux/PlayersJoinNoCheckList.txt" # must be relative path
+  (cd /app; ln -sf "${whitelist_file}" ./whitelist.txt) # for easier access
+
+  if [[ "${steam_ids,,}" =~ ^(no.*|false) ]]; then
+    echo "Cleaning up join whitelist..."
+    truncate -s 0 "${whitelist_file}"
+    return
+  fi
+
+  echo "Setting up join whitelist ... ${steam_ids}"
+  whitelist add "${steam_ids}" >/dev/null 2>&1 || true
+}
+
+function update_admin_whitelist() {
+  local -r steam_ids="$1"
+  if [ -z "${steam_ids}" ]; then return; fi
+
+  local -r ids_file="${ARK_SERVER_VOLUME}/server/ShooterGame/Saved/AllowedCheaterSteamIDs.txt"
+  create_missing_dir "$(dirname "${ids_file}")"
+
+  if [[ "${steam_ids,,}" =~ ^(no.*|false) ]]; then
+    echo "Cleaning up admin whitelist..."
+    truncate -s 0 "${ids_file}"
+    return
+  fi
+
+  echo "Setting up admin whitelist...${steam_ids}"
+  local -a collected=()
+  local id
+  for id in ${steam_ids//,/ }; do
+    [[ -n "${id}" ]] && collected+=("${id}")
+  done
+
+  printf '%s\n' "${collected[@]}" | sort -u > "${ids_file}"
+}
+
+# parse and validate SUB_INSTANCE_KEYS once: each key becomes part of a bash
+# variable name (SUB_<KEY>_*), a config filename (sub.<KEY>.cfg) and an
+# arkmanager instance name - restrict keys to a safe charset and fail loudly
+# instead of silently generating corrupt configs
+SUB_KEYS=()
+if [[ -n "${SUB_INSTANCE_KEYS}" ]]; then
+  IFS=',' read -ra RAW_SUB_KEYS <<< "${SUB_INSTANCE_KEYS}"
+  for RAW_KEY in "${RAW_SUB_KEYS[@]}"; do
+    # trim surrounding whitespace only - embedded whitespace must fail the
+    # charset check below instead of being silently collapsed
+    KEY="${RAW_KEY#"${RAW_KEY%%[![:space:]]*}"}"
+    KEY="${KEY%"${KEY##*[![:space:]]}"}"
+    [[ -n "${KEY}" ]] || continue
+    if [[ ! "${KEY}" =~ ^[A-Za-z0-9_]+$ ]]; then
+      echo "ERROR: invalid SUB_INSTANCE_KEYS entry '${RAW_KEY}'."
+      echo "       Keys may only contain letters, digits and underscores."
+      exit 1
+    fi
+    for SEEN_KEY in "${SUB_KEYS[@]}"; do
+      if [[ "${SEEN_KEY}" == "${KEY}" ]]; then
+        echo "ERROR: duplicate SUB_INSTANCE_KEYS entry '${KEY}'."
+        exit 1
       fi
     fi
     [[ -L "${INI_LINK}" ]] || ln -s "${CONFIG_DIR}/${INI_FILE}" "${INI_FILE}"
@@ -817,6 +897,8 @@ add_backup_retention_to_arkmanager_cfg
 add_always_restart_on_crash_to_arkmanager_cfg
 add_warn_minutes_to_arkmanager_cfg
 warn_on_overridden_backup_budget
+add_whitelist_to_arkmanager_cfg
+
 remake_sub_instances_cfg
 resolve_cluster_backup_args
 
@@ -880,6 +962,8 @@ if [[ ${#ALL_GAME_MOD_IDS[@]} -gt 0 ]]; then
 fi
 
 may_update
+update_join_whitelist "${WHITE_STEAM_IDS}"
+update_admin_whitelist "${ADMIN_STEAM_IDS}"
 
 # Run every configured instance in the background and wait for them, so that
 # this script stays PID 1 and can react to docker stop/restart: without this,
