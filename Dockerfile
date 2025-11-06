@@ -28,7 +28,8 @@ ENV         IMAGE_VERSION="${IMAGE_VERSION}" \
             SERVER_LIST_PORT="27015" \
             STEAM_HOME="/home/${USER}" \
             STEAM_USER="${USER}" \
-            STEAM_LOGIN="anonymous"
+            STEAM_LOGIN="anonymous" \
+            ENABLE_WHITELIST="false"
 
 ENV         ARK_TOOLS_DIR="${ARK_SERVER_VOLUME}/arkmanager"
 
@@ -54,6 +55,7 @@ RUN         set -x && \
             rm -rf /tmp/* /var/cache/*
 
 COPY        bin/    /
+COPY        scripts/ /usr/local/bin/
 COPY        conf.d  ${TEMPLATE_DIRECTORY}
 
 EXPOSE      ${GAME_CLIENT_PORT}/udp ${UDP_SOCKET_PORT}/udp ${SERVER_LIST_PORT}/udp ${RCON_PORT}/tcp
