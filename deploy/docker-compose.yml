@@ -29,6 +29,9 @@ services:
       - TZ=${TZ:-UTC}
       - ENABLE_SERVER_GAME_LOG=true
       - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
+      - ENABLE_WHITELIST=true
+      - ADMIN_STEAM_IDS=${ADMIN_STEAM_IDS}
+      - STEAM_WEB_API_KEY=${STEAM_WEB_API_KEY}
 
       # === Main instance settings ===
       - SESSION_NAME=${SESSION_NAME}

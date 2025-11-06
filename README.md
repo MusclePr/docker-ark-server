@@ -377,6 +377,34 @@ Replace with: `steamlogin="${STEAM_LOGIN}"`
     </details>
 </details>
 
+## Whitelist management (steamIDs)
+
+How to enable whitelist:
+```yaml
+services:
+  server:
+    environment:
+      - ENABLE_WHITELIST=true
+      - STEAM_WEB_API_KEY=${STEAM_WEB_API_KEY}
+```
+
+Online edit:
+```
+$ docker exec -itu steam ark_server whitelist
+Usage: whitelist <command [parameters]>
+command:
+    add <Steam ID>     ... add a Steam ID to the whitelist
+    del <Steam ID>     ... delete a Steam ID from the whitelist
+    show               ... display the current whitelist
+    info [Steam ID]    ... display with account name (requires STEAM_WEB_API_KEY)
+    sync               ... re-apply the whitelist from the file
+```
+
+Offline edit:
+```
+$ nano app/whitelist.txt
+```
+
 ## Sponsors
 
 [@Skyfay](https://github.com/Skyfay) - [skyfay.ch](https://skyfay.ch)

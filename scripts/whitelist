@@ -1,0 +1,154 @@
+#!/usr/bin/env bash
+
+set -eo pipefail
+
+FILE="/app/server/ShooterGame/Binaries/Linux/PlayersJoinNoCheckList.txt"
+
+function usage() {
+    cat <<EOF
+Usage: $(basename "$0") <command [parameters]>
+command:
+    add <Steam ID>     ... add a Steam ID to the whitelist
+    del <Steam ID>     ... delete a Steam ID from the whitelist
+    show               ... display the current whitelist
+    info [Steam ID]    ... display with account name (requires STEAM_WEB_API_KEY)
+    sync               ... re-apply the whitelist from the file
+EOF
+}
+
+function test_id() {
+    (( "$1" >= 76561197960265728 ))
+}
+
+function whitelist_has_id() {
+    local id="$1"
+    [[ ! -f "$FILE" ]] && return 1
+    tr -d '\r' < "$FILE" | grep -Fxq "$id"
+}
+
+function whitelist_sync() {
+    if [ ! -f "$FILE" ]; then
+        return 0
+    fi
+    local id
+    while IFS= read -r id; do
+        id="${id%$'\r'}" # normalize CRLF entries
+        if ! test_id "$id"; then continue; fi # invalid ID to skip
+        arkmanager rconcmd @all "AllowPlayerToJoinNoCheck ${id}" >/dev/null
+    done < "$FILE"
+}
+
+function whitelist_remove() {
+    local id="$1"
+    if ! test_id "$id"; then
+        echo "Steam ID ${id} is invalid" >&2
+        return 1
+    fi
+    if ! whitelist_has_id "$id"; then
+        echo "Steam ID ${id} is not in the whitelist" >&2
+        return 0
+    fi
+    if ! arkmanager rconcmd @all "DisallowPlayerToJoinNoCheck ${id}" >/dev/null; then
+        if [ -f "$FILE" ]; then
+            local tmp_file line
+            tmp_file=$(mktemp /app/whitelist.tmp.XXXXXX)
+            while IFS= read -r line; do
+                line="${line%$'\r'}" # normalize per-line endings
+                [[ "$line" == "$id" ]] && continue
+                printf '%s\r\n' "$line"
+            done < "$FILE" > "$tmp_file"
+            mv "$tmp_file" "$FILE"
+        fi
+    fi
+    echo "Removed Steam ID ${id} from whitelist"
+}
+
+function whitelist_add() {
+    local id="$1"
+    if ! test_id "$id"; then
+        echo "Steam ID ${id} is invalid" >&2
+        return 1
+    fi
+    if whitelist_has_id "$id"; then
+        echo "Steam ID ${id} is already whitelisted" >&2
+        return 0
+    fi
+    if ! arkmanager rconcmd @all "AllowPlayerToJoinNoCheck ${id}" >/dev/null; then
+        if ! whitelist_has_id "$id"; then
+            mkdir -p "$(dirname "$FILE")"
+            printf '%s\r\n' "$id" >> "$FILE"
+        fi
+    fi
+    echo "Added Steam ID ${id} to whitelist"
+}
+
+function whitelist_info() {
+    if [ -z "${STEAM_WEB_API_KEY}" ]; then
+        echo "STEAM_WEB_API_KEY is not set. Cannot fetch player info." >&2
+        echo "https://steamcommunity.com/dev/apikey" >&2
+        return 1
+    fi
+    local id="$1"
+    #if ! test_id "$id"; then
+    #    echo "Steam ID ${id} is invalid" >&2
+    #    return 1
+    #fi
+    # Fetch player info from Steam API
+    local api_key="${STEAM_WEB_API_KEY}"  # Replace with your Steam Web API key
+    local response=$(curl -s "https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/?key=${api_key}&steamids=${id}")
+    local personaname=$(echo "$response" | grep -oP '(?<="personaname":")[^"]+')
+    echo "${personaname}"
+}
+
+function whitelist_info_all() {
+    local id
+    if [ ! -f "$FILE" ]; then
+        echo "Whitelist is empty" >&2
+        return 0
+    fi
+    while IFS= read -r id; do
+        id="${id%$'\r'}"
+        [[ -z "$id" ]] && continue
+        echo -n "${id}: "
+        whitelist_info "$id"
+    done < "$FILE"
+}
+
+case "$1" in
+    add)
+        [[ -z "$2" ]] && { echo "Steam ID is required for add command"; usage; exit 1; }
+        id="$2"
+        whitelist_add "$id"
+        ;;
+    del*|remove|erase|rm)
+        [[ -z "$2" ]] && { echo "Steam ID is required for del command"; usage; exit 1; }
+        id="$2"
+        whitelist_remove "$id"
+        ;;
+    show|list)
+        if [ -f "$FILE" ]; then
+            tr -d '\r' < "$FILE"
+        else
+            echo "Whitelist is empty" >&2
+        fi
+        ;;
+    info*)
+        if [ -n "$2" ]; then
+            whitelist_info "$2"
+        else
+            whitelist_info_all
+        fi
+        ;;
+    sync|reload|refresh)
+        whitelist_sync
+        ;;
+    "")
+        usage
+        exit 0
+        ;;
+    *)
+        echo "Invalid command" >&2
+        usage
+        exit 1
+        ;;
+esac
