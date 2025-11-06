@@ -1,0 +1,262 @@
+#!/usr/bin/env bash
+
+[[ -z "${DEBUG}" ]] || [[ "${DEBUG,,}" = "false" ]] || [[ "${DEBUG,,}" = "0" ]] || set -x
+
+set -eo pipefail
+
+whitelist_file="/app/server/ShooterGame/Binaries/Linux/PlayersJoinNoCheckList.txt"
+
+function usage() {
+    cat <<EOF
+Usage: $(basename "$0") <command [parameters]>
+command:
+    add <Steam ID>       ... add a Steam ID to the whitelist
+    del <Steam ID>       ... delete a Steam ID from the whitelist
+    show                 ... display the current whitelist
+    info [Steam ID]      ... display with account info
+    sync [whitelist.txt] ... re-apply the whitelist to server without restarting
+EOF
+}
+
+function test_id() {
+    (( "$1" >= 76561197960265728 ))
+}
+
+function whitelist_has_id() {
+    local id="$1"
+    [[ ! -f "$whitelist_file" ]] && return 1
+    tr -d '\r' < "$whitelist_file" | grep -Fxq "$id"
+}
+
+function whitelist_sync() {
+    local input_file="${1:-whitelist.txt}"
+    if [ ! -f "${input_file}" ]; then
+        if [ ! -f "${input_file}.txt" ]; then
+            echo "Input whitelist file '${input_file}' not found" >&2
+            return 1
+        fi
+        input_file="${input_file}.txt"
+    fi
+
+    local -i result=0
+    local err_msg=""
+    local id new_contents=""
+    local -a new_ids
+    mapfile -t new_ids < "${input_file}"
+    new_ids=("${new_ids[@]//$'\r'/}") # normalize CRLF entries
+    for id in "${new_ids[@]}"; do
+        if ! test_id "$id"; then continue; fi # invalid ID to skip
+        new_contents+="${id}"$'\n'
+        if ! arkmanager rconcmd @all "AllowPlayerToJoinNoCheck ${id}" > /dev/null 2>&1; then
+            if [ -z "${err_msg}" ]; then
+                err_msg="Failed to add the following Steam IDs to whitelist:"
+            fi
+            err_msg+=" ${id}"
+            result=1
+        fi
+    done
+    if [ -n "${err_msg}" ]; then
+        printf "%s\n" "${err_msg}" >&2
+        err_msg=""
+    fi
+
+    local -a now_ids
+    mapfile -t now_ids < "${whitelist_file}"
+    now_ids=("${now_ids[@]//$'\r'/}") # normalize CRLF entries
+    for id in "${now_ids[@]}"; do
+        if ! grep -Fxq "$id" <<< "$new_contents"; then
+            if ! arkmanager rconcmd @all "DisallowPlayerToJoinNoCheck ${id}" > /dev/null 2>&1; then
+                if [ -z "${err_msg}" ]; then
+                    err_msg="Failed to delete the following Steam IDs from whitelist:"
+                fi
+                err_msg+=" ${id}"
+                result=1
+            fi
+        fi
+    done
+    if [ -n "${err_msg}" ]; then
+        printf "%s\n" "${err_msg}" >&2
+    fi
+    return $result
+}
+
+function whitelist_remove() {
+    local id ids="$1"
+    local -i result=0
+    for id in ${ids//,/ }; do
+        if ! test_id "$id"; then
+            echo "Steam ID ${id} is invalid" >&2
+            result=1
+            continue
+        fi
+        if ! whitelist_has_id "$id"; then
+            echo "Steam ID ${id} is not in the whitelist" >&2
+            continue
+        fi
+        if ! arkmanager rconcmd @all "DisallowPlayerToJoinNoCheck ${id}" > /dev/null 2>&1; then
+            if [ -f "$whitelist_file" ]; then
+                local tmp_file line
+                tmp_file=$(mktemp /app/whitelist.tmp.XXXXXX)
+                while IFS= read -r line; do
+                    line="${line%$'\r'}" # normalize per-line endings
+                    [[ "$line" == "$id" ]] && continue
+                    printf '%s\r\n' "$line"
+                done < "$whitelist_file" > "$tmp_file"
+                mv "$tmp_file" "$whitelist_file"
+            fi
+        fi
+        echo "Removed Steam ID ${id} from whitelist"
+    done
+    return $result
+}
+
+function whitelist_add() {
+    local id ids="$1"
+    local -i result=0
+    for id in ${ids//,/ }; do
+        if ! test_id "$id"; then
+            echo "Steam ID ${id} is invalid" >&2
+            result=1
+            continue
+        fi
+        if whitelist_has_id "$id"; then
+            echo "Steam ID ${id} is already whitelisted" >&2
+            continue
+        fi
+        if ! arkmanager rconcmd @all "AllowPlayerToJoinNoCheck ${id}" > /dev/null 2>&1; then
+            if ! whitelist_has_id "$id"; then
+                mkdir -p "$(dirname "$whitelist_file")"
+                printf '%s\r\n' "$id" >> "$whitelist_file"
+            fi
+        fi
+        echo "Added Steam ID ${id} to whitelist"
+    done
+    return $result
+}
+
+function supports_hyperlinks() {
+    # Force enable
+    [[ -n "${FORCE_HYPERLINKS}" ]] && return 0
+
+    # Disable if NO_HYPERLINKS is set
+    [[ -n "${NO_HYPERLINKS}" ]] && return 1
+
+    # Check common environment variables
+    if [[ -n "$DOMTERM" ]] || \
+       [[ -n "$WT_SESSION" ]] || \
+       [[ -n "$KONSOLE_VERSION" ]]; then
+        return 0
+    fi
+
+    # Check TERM_PROGRAM
+    case "$TERM_PROGRAM" in
+        "vscode"|"iTerm.app"|"Hyper"|"Apple_Terminal"|"WezTerm")
+            return 0
+            ;;
+    esac
+
+    # Check VTE_VERSION (GNOME Terminal, etc.)
+    if [[ "$VTE_VERSION" =~ ^[0-9]+$ ]] && (( VTE_VERSION >= 5000 )); then
+        return 0
+    fi
+
+    # Fallback: If running in a terminal (TTY), assume support or graceful degradation
+    if [ -t 1 ]; then
+        return 0
+    fi
+
+    # Fallback for docker exec (where TTY might not be detected but TERM is set)
+    if [[ -n "$TERM" ]] && [[ "$TERM" != "dumb" ]]; then
+        return 0
+    fi
+
+    return 1
+}
+
+function osc8() {
+    local url="$1" content="$2"
+    if [ -z "${url}" ]; then
+        echo -n "${content}"
+        return
+    fi
+    if [ -z "${content}" ]; then
+        content="${url}"
+    fi
+    
+    if supports_hyperlinks; then
+        printf '\033]8;;%s\a%s\033]8;;\a' "$url" "$content"
+    else
+        echo -n "${content}"
+    fi
+}
+
+function whitelist_info() {
+    # STEAM_WEB_API_KEY is not set. Cannot fetch player info.
+    # https://steamcommunity.com/dev/apikey
+    local id="$1"
+    local url="https://steamcommunity.com/profiles/${id}"
+    if [ -n "${STEAM_WEB_API_KEY}" ]; then
+        # Fetch player info from Steam API
+        local api_key="${STEAM_WEB_API_KEY}"  # Replace with your Steam Web API key
+        local response=$(curl -s "https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/?key=${api_key}&steamids=${id}")
+        local personaname=$(echo "$response" | grep -oP '(?<="personaname":")[^"]+')
+        echo "$(osc8 "$url" "${personaname}")"
+    else
+        echo "$(osc8 "$url" "$id")"
+    fi
+    return 0
+}
+
+function whitelist_info_all() {
+    local id
+    if [ ! -f "$whitelist_file" ]; then
+        echo "Whitelist is empty" >&2
+        return 0
+    fi
+    while IFS= read -r id; do
+        id="${id%$'\r'}"
+        [[ -z "$id" ]] && continue
+        echo -n "${id}: "
+        whitelist_info "$id"
+    done < "$whitelist_file"
+    return 0
+}
+
+case "$1" in
+    add)
+        [[ -z "$2" ]] && { echo "Steam ID is required for add command"; usage; exit 1; }
+        ids="$2"
+        whitelist_add "$ids"
+        ;;
+    del*|remove|erase|rm)
+        [[ -z "$2" ]] && { echo "Steam ID is required for del command"; usage; exit 1; }
+        ids="$2"
+        whitelist_remove "$ids"
+        ;;
+    show|list)
+        if [ -f "$whitelist_file" ]; then
+            tr -d '\r' < "$whitelist_file"
+        else
+            echo "Whitelist is empty" >&2
+        fi
+        ;;
+    info*)
+        if [ -n "$2" ]; then
+            whitelist_info "$2"
+        else
+            whitelist_info_all
+        fi
+        ;;
+    sync|reload|refresh)
+        whitelist_sync "$2"
+        ;;
+    "")
+        usage
+        exit 0
+        ;;
+    *)
+        echo "Invalid command" >&2
+        usage
+        exit 1
+        ;;
+esac
