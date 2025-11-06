@@ -42,6 +42,12 @@ services:
       #- CLUSTER_ID=MyCluster
       #- SUB_INSTANCE_KEYS=Fjordur,Caballus_P
       #- SUB_Caballus_P_SERVER_MAP_MOD_ID=1679826889
+      # Join Whitelist settings
+      - ENABLE_WHITELIST=${ENABLE_WHITELIST:-false}
+      - WHITE_STEAM_IDS=${WHITE_STEAM_IDS}
+      - STEAM_WEB_API_KEY=${STEAM_WEB_API_KEY}
+      # Admin Whitelist settings
+      - ADMIN_STEAM_IDS=${ADMIN_STEAM_IDS}
     ports:
       # Port for connections from ARK game client
       - "7777:7777/udp"

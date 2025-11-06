@@ -141,6 +141,9 @@ Basic configuration is done with environment variables:
 | CLUSTER_ID | `empty` | Setting a cluster id enables cluster mode (item/character transfer) and requires a volume mounted at `/cluster`, see [Cluster and multi-map support](#cluster-and-multi-map-support) |
 | SUB_INSTANCE_KEYS | `empty` | Additional map instances to run in this container, see [Cluster and multi-map support](#cluster-and-multi-map-support) |
 | DEBUG | `empty` | Set to `true` for verbose (`set -x`) entrypoint logging |
+| ENABLE_WHITELIST | false | Enable join whitelist (as enable exclusivejoin) |
+| WHITE_STEAM_IDS | `empty` | Steam IDs to pre-register on the join whitelist |
+| ADMIN_STEAM_IDS | `empty` | Steam IDs to pre-register on the admin whitelist |
 
 ### Graceful shutdown
 
@@ -461,6 +464,74 @@ CLUSTER_ID=MyCluster
 # ...
 ```
 </details>
+
+## Join Whitelist settings
+
+### How to enable join whitelist
+```yaml
+services:
+  server:
+    environment:
+      - ENABLE_WHITELIST=true  # Enabling the join whitelist adds the -exclusivejoin option.
+      - WHITE_STEAM_IDS=1234567890,9876543210  # Preset to PlayersJoinNoCheckList.txt
+      - STEAM_WEB_API_KEY=${STEAM_WEB_API_KEY} # Optional: Used to get username. https://steamcommunity.com/dev/apikey
+```
+
+**Online edit:**
+```bash
+$ docker exec -u steam ark_server whitelist
+Usage: whitelist <command [parameters]>
+command:
+    add <Steam ID>       ... add a Steam ID to the whitelist
+    del <Steam ID>       ... delete a Steam ID from the whitelist
+    show                 ... display the current whitelist
+    info [Steam ID]      ... display with account info
+    sync [whitelist.txt] ... re-apply the whitelist to server without restarting
+$ docker exec -u steam ark_server whitelist add 1234567890
+$ docker exec -u steam ark_server whitelist add 9876543210
+$ docker exec -u steam ark_server whitelist show
+1234567890
+9876543210
+```
+
+**Offline edit:**
+```bash
+$ nano app/whitelist.txt
+```
+
+### How to apply custom whitelist
+
+```bash
+$ docker exec -u steam ark_server whitelist sync [whitelist.txt]
+```
+
+**e.g:** Single admin mode for maintenance.
+
+```bash
+$ docker exec -u steam ark_server bash -c 'cp -vf whitelist.txt all.txt'  # save current list
+$ docker exec -u steam ark_server bash -c 'echo "${ADMIN_STEAM_IDS%%,*}" > single.txt'  # save single list
+$ docker exec -u steam ark_server whitelist sync single
+
+$ docker exec -u steam ark_server whitelist sync all  # revert
+```
+
+**Note:** Even if you set `WHITE_STEAM_IDS=""`, the contents of **PlayersJoinNoCheckList.txt** will not be emptied.
+If you set `WHITE_STEAM_IDS="no"`, it will be emptied.
+
+## Admin Whitelist settings
+
+### How to enable admin whitelist
+
+```yaml
+services:
+  server:
+    environment:
+      - ADMIN_STEAM_IDS=1234567890,9876543210  # Pre-register to AllowedCheaterSteamIDs.txt
+```
+The admin player will no longer need to enter `EnableCheats <admin-password>`.
+
+**Note:** Even if you set `ADMIN_STEAM_IDS=""`, the contents of **AllowedCheaterSteamIDs.txt** will not be emptied.
+If you set `ADMIN_STEAM_IDS="no"`, it will be emptied.
 
 ## Troubleshooting
 

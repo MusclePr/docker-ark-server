@@ -161,6 +161,18 @@ EOF
   fi
 }
 
+function add_whitelist_to_arkmanager_cfg() {
+  local -r config="${ARK_TOOLS_DIR}/arkmanager.cfg"
+  if ! grep -q '^arkflag_exclusivejoin=' "${config}"; then
+    echo "Add Whitelist settings to arkmanager.cfg ..."
+    cat <<EOF >> "${config}"
+
+# Whitelist settings
+arkflag_exclusivejoin="\${ENABLE_WHITELIST:-false}"
+EOF
+  fi
+}
+
 function remake_sub_instances_cfg() {
   local key target f
   local -i i=1
@@ -217,6 +229,46 @@ function get_all_mod_ids() {
   done
 
   [[ ${#collected[@]} -eq 0 ]] || printf '%s\n' "${collected[@]}" | sort -u
+}
+
+function update_join_whitelist() {
+  local -r steam_ids="$1"
+  if [ -z "${steam_ids}" ]; then return; fi
+
+  local -r whitelist_file="./server/ShooterGame/Binaries/Linux/PlayersJoinNoCheckList.txt" # must be relative path
+  (cd /app; ln -sf "${whitelist_file}" ./whitelist.txt) # for easier access
+
+  if [[ "${steam_ids,,}" =~ ^(no.*|false) ]]; then
+    echo "Cleaning up join whitelist..."
+    truncate -s 0 "${whitelist_file}"
+    return
+  fi
+
+  echo "Setting up join whitelist ... ${steam_ids}"
+  whitelist add "${steam_ids}" >/dev/null 2>&1 || true
+}
+
+function update_admin_whitelist() {
+  local -r steam_ids="$1"
+  if [ -z "${steam_ids}" ]; then return; fi
+
+  local -r ids_file="${ARK_SERVER_VOLUME}/server/ShooterGame/Saved/AllowedCheaterSteamIDs.txt"
+  create_missing_dir "$(dirname "${ids_file}")"
+
+  if [[ "${steam_ids,,}" =~ ^(no.*|false) ]]; then
+    echo "Cleaning up admin whitelist..."
+    truncate -s 0 "${ids_file}"
+    return
+  fi
+
+  echo "Setting up admin whitelist...${steam_ids}"
+  local -a collected=()
+  local id
+  for id in ${steam_ids//,/ }; do
+    [[ -n "${id}" ]] && collected+=("${id}")
+  done
+
+  printf '%s\n' "${collected[@]}" | sort -u > "${ids_file}"
 }
 
 # parse and validate SUB_INSTANCE_KEYS once: each key becomes part of a bash
@@ -308,6 +360,8 @@ copy_missing_file "${TEMPLATE_DIRECTORY}/arkmanager.cfg" "${ARK_TOOLS_DIR}/arkma
 copy_missing_file "${TEMPLATE_DIRECTORY}/arkmanager-user.cfg" "${ARK_TOOLS_DIR}/instances/main.cfg"
 
 add_cluster_to_arkmanager_cfg
+add_whitelist_to_arkmanager_cfg
+
 remake_sub_instances_cfg
 
 # multi-instance needs per-instance autorestart files: the historic template
@@ -394,6 +448,8 @@ if [[ ${#ALL_GAME_MOD_IDS[@]} -gt 0 ]]; then
 fi
 
 may_update
+update_join_whitelist "${WHITE_STEAM_IDS}"
+update_admin_whitelist "${ADMIN_STEAM_IDS}"
 
 # Run every configured instance in the background and wait for them, so that
 # this script stays PID 1 and can react to docker stop/restart: without this,
