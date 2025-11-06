@@ -29,7 +29,9 @@ ENV         IMAGE_VERSION="${IMAGE_VERSION}" \
             STEAM_HOME="/home/${USER}" \
             STEAM_USER="${USER}" \
             STEAM_LOGIN="anonymous" \
-            ENABLE_WHITELIST="false"
+            ENABLE_WHITELIST="false" \
+            TZ="UTC" \
+            ENABLE_SERVER_GAME_LOG="false"
 
 ENV         ARK_TOOLS_DIR="${ARK_SERVER_VOLUME}/arkmanager"
 
@@ -45,6 +47,7 @@ RUN         set -x && \
                                 cron \
                                 pcregrep \
                                 procps \
+                                tzdata \
             && \
             opt=$([ "${ARK_TOOLS_VERSION#v}" != "${ARK_TOOLS_VERSION}" ] && echo -n "--tag" || echo -n "--commit") && \
             curl -sL https://raw.githubusercontent.com/arkmanager/ark-server-tools/refs/heads/master/netinstall.sh | \
@@ -58,6 +61,8 @@ RUN         set -x && \
 COPY        bin/    /
 COPY        scripts/ /usr/local/bin/
 COPY        conf.d  ${TEMPLATE_DIRECTORY}
+
+RUN         /usr/local/bin/ServerGameLogWatcher.sh --install
 
 EXPOSE      ${GAME_CLIENT_PORT}/udp ${UDP_SOCKET_PORT}/udp ${SERVER_LIST_PORT}/udp ${RCON_PORT}/tcp
 
