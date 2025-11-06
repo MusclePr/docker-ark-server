@@ -604,6 +604,27 @@ function warn_on_overridden_backup_budget() {
   done
 }
 
+function add_logging_to_arkmanager_cfg() {
+  local -r config="${ARK_TOOLS_DIR}/arkmanager.cfg"
+  if ! grep -q '^discordWebhookURL=' "${config}"; then
+    echo "Add Discord webhook settings to arkmanager.cfg ..."
+    cat <<EOF >> "${config}"
+
+# Discord webhook settings
+discordWebhookURL=\${DISCORD_WEBHOOK_URL}
+EOF
+  fi
+  if ! grep -q '^arkflag_servergamelog=' "${config}"; then
+    echo "Add Logging settings to arkmanager.cfg ..."
+    cat <<EOF >> "${config}"
+
+# Logging settings
+arkflag_servergamelog=\${ENABLE_SERVER_GAME_LOG:-false}
+notifyCommand+='; [ "${msg}" = "${notifyMsgServerUp}" ] && ServerGameLogWatcher.sh "${serverpid}"'
+EOF
+  fi
+}
+
 function add_whitelist_to_arkmanager_cfg() {
   local -r config="${ARK_TOOLS_DIR}/arkmanager.cfg"
   if ! grep -q '^arkflag_exclusivejoin=' "${config}"; then
@@ -898,6 +919,7 @@ add_always_restart_on_crash_to_arkmanager_cfg
 add_warn_minutes_to_arkmanager_cfg
 warn_on_overridden_backup_budget
 add_whitelist_to_arkmanager_cfg
+add_logging_to_arkmanager_cfg
 
 remake_sub_instances_cfg
 resolve_cluster_backup_args

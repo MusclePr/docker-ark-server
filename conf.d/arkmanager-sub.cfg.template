@@ -28,3 +28,6 @@ ark_AltSaveDirectoryName="${SUB_<KEY>_SAVE_DIR:-sub.<KEY>}"
 
 #arkCustomDynamicConfigURL="http://arkdedicated.com/dynamicconfig.ini"  # Set this to use a custom dynamic config from the given server address
 #arkPreStart="/etc/arkmanager/instances/instance.start"              # Set this to override the start script; defaults to config file name with .cfg replaced by .start
+
+# Notifications
+discordWebhookURL="${SUB_<KEY>_DISCORD_WEBHOOK_URL:-${DISCORD_WEBHOOK_URL}}"
