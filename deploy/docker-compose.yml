@@ -17,6 +17,7 @@ services:
       - ${VOLUME_APP}:/app
       - ${VOLUME_CLUSTER}:/cluster
     environment:
+      - TZ=${TZ:-Asia/Tokyo}
       # === Global settings ===
       # # This setup is necessary if you have to download a non-anonymous appID/modID
       #- STEAM_LOGIN=${STEAM_LOGIN}
@@ -24,9 +25,10 @@ services:
       - BACKUP_ON_STOP=${BACKUP_ON_STOP}
       - PRE_UPDATE_BACKUP=${PRE_UPDATE_BACKUP}
       - WARN_ON_STOP=${WARN_ON_STOP}
-      #- BETA=preaquatica
-      # Cluster settings
+      - BETA=${BETA}
       - CLUSTER_ID=MyCluster
+      - ENABLE_SERVER_GAME_LOG=${ENABLE_SERVER_GAME_LOG}
+      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
 
       # === Main instance settings ===
       - SESSION_NAME=${SESSION_NAME}
@@ -42,7 +44,6 @@ services:
 
       # === Sub instances settings ===
       - SUB_INSTANCE_KEYS=Fjordur,Caballus_P
-
       # SUB_<KEY>_* default variables
       #- SUB_Fjordur_SAVE_DIR=sub.Fjordur
       #- SUB_Fjordur_SERVER_MAP=Fjordur
