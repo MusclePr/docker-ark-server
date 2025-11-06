@@ -24,9 +24,11 @@ services:
       - BACKUP_ON_STOP=${BACKUP_ON_STOP}
       - PRE_UPDATE_BACKUP=${PRE_UPDATE_BACKUP}
       - WARN_ON_STOP=${WARN_ON_STOP}
-      #- BETA=preaquatica
-      # Cluster settings
+      - BETA=${BETA}
       - CLUSTER_ID=MyCluster
+      - TZ=${TZ:-UTC}
+      - ENABLE_SERVER_GAME_LOG=true
+      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
 
       # === Main instance settings ===
       - SESSION_NAME=${SESSION_NAME}
@@ -42,7 +44,6 @@ services:
 
       # === Sub instances settings ===
       - SUB_INSTANCE_KEYS=Fjordur,Caballus_P
-
       # SUB_<KEY>_* default variables
       #- SUB_Fjordur_SAVE_DIR=sub.Fjordur
       #- SUB_Fjordur_SERVER_MAP=Fjordur
@@ -52,6 +53,7 @@ services:
       #- SUB_Fjordur_GAME_CLIENT_PORT=7779
       #- SUB_Fjordur_SERVER_LIST_PORT=27016
       #- SUB_Fjordur_RCON_PORT=27021
+      #- SUB_Fjordur_DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
 
       # SUB_<KEY>_* default variables
       #- SUB_Caballus_P_SAVE_DIR=sub.Caballus_P
@@ -62,6 +64,7 @@ services:
       #- SUB_Caballus_P_GAME_CLIENT_PORT=7781
       #- SUB_Caballus_P_SERVER_LIST_PORT=27017
       #- SUB_Caballus_P_RCON_PORT=27022
+      #- SUB_Caballus_P_DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
     ports:
       # Port for connections from ARK game client
       - "7777-7800:7777-7800/udp"

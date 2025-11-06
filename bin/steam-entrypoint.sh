@@ -84,6 +84,26 @@ EOF
   fi
 }
 
+function add_logging_to_arkmanager_cfg() {
+  local -r config="${ARK_TOOLS_DIR}/arkmanager.cfg"
+  if ! grep -q '^discordWebhookURL=' "${config}"; then
+    echo "Add Discord webhook settings to arkmanager.cfg ..."
+    cat <<EOF >> "${config}"
+
+# Discord webhook settings
+discordWebhookURL=\${DISCORD_WEBHOOK_URL}
+EOF
+  fi
+  if ! grep -q '^arkflag_servergamelog=' "${config}"; then
+    echo "Add Logging settings to arkmanager.cfg ..."
+    cat <<EOF >> "${config}"
+
+# Logging settings
+arkflag_servergamelog=\${ENABLE_SERVER_GAME_LOG:-false}
+EOF
+  fi
+}
+
 function remake_sub_instances_cfg() {
   local key
   local -i i=1
@@ -130,6 +150,12 @@ function get_all_mod_ids() {
   printf '%s\n' "${collected[@]}" | sort -u
 }
 
+function add_plugins() {
+  local plugin_dir="${ARK_TOOLS_DIR}/plugins"
+  create_missing_dir "${plugin_dir}"
+  cp -auv ${TEMPLATE_DIRECTORY}/plugins/*.sh "${plugin_dir}/" 2>/dev/null || true
+}
+
 args=("$@")
 if [[ "${ENABLE_CROSSPLAY}" == "true" ]]; then
   args=('--arkopt,-crossplay' "${args[@]}")
@@ -166,7 +192,9 @@ copy_missing_file "${TEMPLATE_DIRECTORY}/arkmanager.cfg" "${ARK_TOOLS_DIR}/arkma
 copy_missing_file "${TEMPLATE_DIRECTORY}/arkmanager-user.cfg" "${ARK_TOOLS_DIR}/instances/main.cfg"
 copy_missing_file "${TEMPLATE_DIRECTORY}/crontab" "${ARK_SERVER_VOLUME}/crontab"
 
+add_plugins
 add_cluster_to_arkmanager_cfg
+add_logging_to_arkmanager_cfg
 remake_sub_instances_cfg
 
 [[ -L "${ARK_SERVER_VOLUME}/Game.ini" ]] ||

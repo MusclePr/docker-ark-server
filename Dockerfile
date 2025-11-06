@@ -28,7 +28,10 @@ ENV         IMAGE_VERSION="${IMAGE_VERSION}" \
             SERVER_LIST_PORT="27015" \
             STEAM_HOME="/home/${USER}" \
             STEAM_USER="${USER}" \
-            STEAM_LOGIN="anonymous"
+            STEAM_LOGIN="anonymous" \
+            TZ="UTC" \
+            ENABLE_SERVER_GAME_LOG="false" \
+            DISCORD_WEBHOOK_URL=""
 
 ENV         ARK_TOOLS_DIR="${ARK_SERVER_VOLUME}/arkmanager"
 
@@ -44,6 +47,7 @@ RUN         set -x && \
                                 cron \
                                 pcregrep \
                                 procps \
+                                tzdata \
             && \
             opt=$([ "${ARK_TOOLS_VERSION#v}" != "${ARK_TOOLS_VERSION}" ] && echo -n "--tag" || echo -n "--commit") && \
             curl -sL https://raw.githubusercontent.com/arkmanager/ark-server-tools/refs/heads/master/netinstall.sh | \

@@ -46,6 +46,9 @@ The basic configuration of your server is done by using environment variables wh
 | GAME_MOD_IDS | `empty` |  Additional game-mods you want to install, seperated by comma. (e.g. GAME_MOD_IDS=487516323,487516324,487516325) |
 | BETA | `empty` | Specify the beta version if necessary. (e.g. BETA=preaquatica) |
 | CLUSTER_ID | MyCluster | All maps in a container use the same cluster ID, and it is not recommended to change it later. |
+| TZ | UTC | You can configure the timezone |
+| ENABLE_SERVER_GAME_LOG | false | Enable watching ServerGame.{PID}.{UTC}.log |
+| DISCORD_WEBHOOK_URL | `empty` | Discord WebHook URL |
 
 #### Get things runnning
 
