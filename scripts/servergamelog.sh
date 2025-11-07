@@ -44,7 +44,7 @@ source "/app/arkmanager/instances/${INSTANCE}.cfg"
 
 export SERVER_MAP="${serverMap:-}"
 # shellcheck disable=SC2012 # Because the file patterns are limited, we simply use ls.
-sub_instances=$(ls -1 /app/arkmanager/instances/sub.*.cfg | wc -l || echo 0)
+sub_instances=$(ls -1 /app/arkmanager/instances/sub.*.cfg 2>/dev/null | wc -l || echo 0)
 multimap=$([ "$sub_instances" -gt 0 ] && echo "${SERVER_MAP}" || echo "")
 export MULTI_MAP="${multimap}"
 
