@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 # gameserverlog pre-filter: convert UTC timestamps to local time
 
-set -o pipefail
-
 # trim leading and trailing whitespace
 trim() {
   local str="$1"
@@ -41,5 +39,5 @@ while IFS= read -r raw_line; do
     continue
   fi
 
-  echo "${local_time} [${serverMap}] ${message}"
+  echo "${local_time}|${message}"
 done

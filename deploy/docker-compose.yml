@@ -17,7 +17,6 @@ services:
       - ${VOLUME_APP}:/app
       - ${VOLUME_CLUSTER}:/cluster
     environment:
-      - TZ=${TZ:-Asia/Tokyo}
       # === Global settings ===
       # # This setup is necessary if you have to download a non-anonymous appID/modID
       #- STEAM_LOGIN=${STEAM_LOGIN}
@@ -27,7 +26,8 @@ services:
       - WARN_ON_STOP=${WARN_ON_STOP}
       - BETA=${BETA}
       - CLUSTER_ID=MyCluster
-      - ENABLE_SERVER_GAME_LOG=${ENABLE_SERVER_GAME_LOG}
+      - TZ=${TZ:-UTC}
+      - ENABLE_SERVER_GAME_LOG=true
       - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
 
       # === Main instance settings ===
