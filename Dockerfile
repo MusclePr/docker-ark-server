@@ -80,6 +80,7 @@ RUN         set -x && \
                                 cron \
                                 procps \
                                 tzdata \
+                                inotify-tools \
             && \
             opt=$([ "${ARK_TOOLS_VERSION#v}" != "${ARK_TOOLS_VERSION}" ] && echo -n "--tag" || echo -n "--commit") && \
             curl -fsSL https://raw.githubusercontent.com/arkmanager/ark-server-tools/refs/heads/master/netinstall.sh | \
